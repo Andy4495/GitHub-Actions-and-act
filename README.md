@@ -1,6 +1,6 @@
 # GitHub Actions and `act`
 
-[![Check Markdown Links](https://github.com/Andy4495/GitHub-actions-and-act/actions/workflows/CheckMarkdownLinks.yml/badge.svg)](https://github.com/Andy4495/GitHub-actions-and-act/actions/workflows/CheckMarkdownLinks.yml)
+[![Check Markdown Links](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/CheckMarkdownLinks.yml/badge.svg)](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/CheckMarkdownLinks.yml)
 
 I use GitHub [Actions][3] to run automated builds, tests, and checks on my repositories. I also like to use the [`act`][1] tool created by GitHub user [nektos][4] to develop and test my workflows before pushing them to GitHub.
 
