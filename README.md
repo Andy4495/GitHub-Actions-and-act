@@ -4,11 +4,11 @@
 
 I use GitHub [Actions][3] to run automated builds, tests, and checks on my repositories. I also like to use the [`act`][1] tool created by GitHub user [nektos][4] to develop and test my workflows before pushing them to GitHub.
 
-`act` uses [Docker][5] and customized [images][6] to create a local environment similar to the environment used by GitHub Actions. The default `act` image is intentionally [incomplete][7] to keep its size manageable. While it works well for many cases, there are cases which require extra workflow steps in order to get the action to run locally.
+`act` uses [Docker][5] with customized [images][6] to create a local environment similar to the environment used by GitHub Actions. The default `act` image is intentionally [incomplete][7] to keep its size manageable. While it works well for many actions, there are cases which require extra workflow steps to set up the environment in order to get the action to run locally.
 
 ## Arduino `compile-sketches` Action
 
-The main problem that I have run into is with Arduino's [`compile-sketches`][8] action. Changes made in release [v1.1.0][10] changed the Python and related tools configuration which is incompatible with the default `act` image ([`catthehacker/ubuntu:act-latest`][9]).
+The main problem that I have run into is with Arduino's [`compile-sketches`][8] action. Release [v1.1.0][10] of the action changed the Python and related tools configuration which is incompatible with the default `act` image ([`catthehacker/ubuntu:act-latest`][9]).
 
 In particular, the following error will be thrown when trying to use `compile-sketches` v1.1.0 and the `ubuntu:act-latest` image:
 
@@ -18,9 +18,15 @@ Failure - Main Action setup
 Job failed
 ```
 
-### Fixing the `compile-sketches` Error
+In addition, a change in cpython [v3.11.5][22] created another [issue][23] which causes the error:
 
-To fix this problem, `python`, `poetry`, and `pipx` need to be installed locally into the `act` Docker image.
+```text
+ImportError: /opt/hostedtoolcache/Python/3.11.5/x64/lib/python3.11/lib-dynload/math.cpython-311-x86_64-linux-gnu.so: undefined symbol: _PyModule_Add
+```
+
+### Fixing the `compile-sketches` Errors
+
+To fix these problems, `python`, `poetry`, and `pipx` need to be installed locally into the `act` Docker image. It is also necessary to make sure that the version of python installed for `act` compatibility is the same version installed by the `arduino-compile-sketches` action.
 
 While the workflow could be configured to install these tools regardless of whether the action is running on GitHub or locally using `act`, I prefer to install the tools only when running locally. This can be done by checking for the environment variable [`env.ACT`][11] before running an installation step.
 
@@ -30,11 +36,14 @@ To get the `compile-sketches` action to run locally, update your workflow as fol
     steps:                           # Existing code
       - uses: actions/checkout@main  # Existing code
 # *** Add the code below ***
+      - name: Clone compile-sketches to get python version (using nektos/act locally)
+        if: ${{ env.ACT }}
+        run: cd /tmp; git clone 'https://github.com/arduino/compile-sketches'
       - name: setup-python (using nektos/act locally)
         if: ${{ env.ACT }}
         uses: actions/setup-python@v4
         with:
-          python-version: '>=3.11'
+          python-version-file: /tmp/compile-sketches/.python-version
       - name: Install Poetry (using nektos/act locally)
         if: ${{ env.ACT }}
         uses: snok/install-poetry@v1
@@ -47,9 +56,9 @@ To get the `compile-sketches` action to run locally, update your workflow as fol
 
 ## Other Errors
 
-I occasionally run into other errors that aren't specific to the actions themselves. In particular, I have seen timeout and rate-limiting errors that can generally be cleared by re-running the action after waiting a few minutes.
+I occasionally run into other errors that aren't specific to the actions themselves. Timeout and rate-limiting errors can generally be cleared by re-running the action after waiting a few minutes.
 
-Examples of other errors:
+Examples of timeout and rate-limiting errors:
 
 ```text
 Downloading index: package_index.tar.bz2 Get "https://downloads.arduino.cc/packages/package_index.tar.bz2": dial tcp: lookup downloads.arduino.cc on 192.168.1.1:53: read udp 192.168.1.1:33527->192.168.1.1:53: i/o timeout
@@ -79,21 +88,21 @@ Context access might be invalid: ACT
 
 This is documented in several issues ([67][67], [61][61], [47][47]) and there does not appear to be a plan to fix it. Some issue comments claim that it is fixed, but it is not.
 
-While the basic issue is slightly annoying, a more annoying aspect of the issue is that the message does not go away when you close the file, and the Problems window get cluttered with the messages. The only way to clear the messages after closing the file editor is to disable/enable the extension itself or quit and restart VSCode.
+While the basic issue is slightly annoying, it is more annoying that the message does not go away when you close the file, and the Problems window gets cluttered with the messages. The only way to clear the messages after closing the file editor is to disable/enable the extension itself or quit and restart VSCode.
 
 ## Example Workflows
 
 I have several example workflows available in my [.github repository][12]:
 
 - [compile-sketches][13]
-  - Arduino `compile-sketches` workflow updated with the fix mentioned above and with matrix build definitions for various hardware platforms
+  - Arduino `compile-sketches` workflow with matrix build definitions for various hardware platforms and including the fix mentioned above
 - [markdown-link-check][14]
   - Checks for dead links in Markdown files, automatically runs once a month
   - Note that you also need to create a file named `mlc_config.json`
 - [arduino-lint][15]
   - Used with libraries published to the Arduino library manager to confirm that they meet the Arduino Library Spec rules
 - [markdownlint][16]
-  - Used to validate "clean" markdown code.
+  - Used to validate "clean" markdown code
   - I typically do not run this as an action but instead use the related [VSCode extension][21] to check my Markdown code
   - Note that you also need to create a file named `markdownlintconfig.json`
 - [build-dependent-repos][17]
@@ -136,6 +145,8 @@ The software and other files in this repository are released under what is commo
 [19]: https://github.com/marketplace/actions/arduino-arduino-lint-action
 [20]: https://github.com/marketplace/actions/markdownlint-cli
 [21]: https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint
+[22]: https://github.com/python/cpython/releases/tag/v3.11.5
+[23]: https://github.com/python/cpython/issues/108525
 [47]: https://github.com/github/vscode-github-actions/issues/47
 [61]: https://github.com/github/vscode-github-actions/issues/61
 [67]: https://github.com/github/vscode-github-actions/issues/67
