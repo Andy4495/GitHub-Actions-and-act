@@ -16,7 +16,8 @@ on:
         type: string
 
 jobs:
-  call-markdown-link-check-workflow:
+  markdown-link-check:
+    name: call-markdown-link-check-workflow
     uses: Andy4495/.github/.github/workflows/CheckMarkdownLinks.yml@main         
     with:
       message: ${{ inputs.message }}
