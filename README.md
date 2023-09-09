@@ -179,7 +179,17 @@ The output log confirms that only a single job was triggered, and the other jobs
 
 `act` only creates a single container when running matrix strategies with reusable workflows. If I run the same action functionality without calling a reusable workflow, `act` creates a separate container for each job combination.
 
-The only way that I know of to work around this is to run `act` multiple times with each matrix combination specified with the `--matrix` option individually for each run:
+I have found two ways to work around this:
+
+  - Temporarily set `max-parallel` to `1` in the strategy definition:
+
+```yaml
+    strategy:
+      max-parallel: 1    # Temporarily add this line between strategy and matrix
+      matrix:
+```
+
+- Or, run `act` multiple times with a unique matrix combination specified with the `--matrix` option individually for each run:
 
 ```shell
 act -j compile-sketches --matrix arch:avr
