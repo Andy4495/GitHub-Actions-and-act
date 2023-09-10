@@ -4,111 +4,17 @@
 
 I use GitHub [Actions][3] to run automated builds, tests, and checks on my repositories. I also like to use the [`act`][1] tool created by GitHub user [nektos][4] to develop and test my workflows before pushing them to GitHub.
 
-`act` uses [Docker][5] with customized [images][6] to create a local environment similar to the environment used by GitHub Actions. The default `act` image is intentionally [incomplete][7] to keep its size manageable. While it works well for many actions, there are cases which require extra workflow steps to set up the environment in order to get the action to run locally.
+## GitHub Actions
 
-## Arduino `compile-sketches` Action
+GitHub has comprehensive [documentation][3] on Actions. This section documents some conventions I use with my actions, along with examples of workflows that I use across my repos.
 
-The main problem that I have run into is with Arduino's [`compile-sketches`][8] action. Release [v1.1.0][10] of the action changed the Python and related tools configuration which is incompatible with the default `act` image ([`catthehacker/ubuntu:act-latest`][9]).
-
-In particular, the following error will be thrown when trying to use `compile-sketches` v1.1.0 and the `ubuntu:act-latest` image:
-
-``` text
-/var/run/act/workflow/1-composite-2.sh: line 5: pipx: command not found
-Failure - Main Action setup
-Job failed
-```
-
-In addition, a change in cpython [v3.11.5][22] created another [issue][23] which causes the error:
-
-```text
-ImportError: /opt/hostedtoolcache/Python/3.11.5/x64/lib/python3.11/lib-dynload/math.cpython-311-x86_64-linux-gnu.so: undefined symbol: _PyModule_Add
-```
-
-### Fixing the `compile-sketches` Errors
-
-To fix these problems, `python`, `poetry`, and `pipx` need to be installed locally into the `act` Docker image. It is also necessary to make sure that the version of python installed for `act` compatibility is the same version installed by the `arduino-compile-sketches` action.
-
-To get the `compile-sketches` action to run locally, update your workflow as follows:
-
-```yaml
-    steps:                           # Existing code
-      - uses: actions/checkout@main  # Existing code
-# *** Add the code below ***
-      - name: Clone compile-sketches to get python version (using nektos/act locally)
-        if: ${{ env.ACT }}
-        run: cd /tmp; git clone 'https://github.com/arduino/compile-sketches'
-      - name: setup-python (using nektos/act locally)
-        if: ${{ env.ACT }}
-        uses: actions/setup-python@v4
-        with:
-          python-version-file: /tmp/compile-sketches/.python-version
-      - name: Install Poetry (using nektos/act locally)
-        if: ${{ env.ACT }}
-        uses: snok/install-poetry@v1
-      - name: Install pipx (using nektos/act locally)
-        if: ${{ env.ACT }}
-        run: pip install pipx 
-# *** Add the code above ***
-      - uses: arduino/compile-sketches@v1  # Existing code
-```
-
-While the workflow could be configured to install these tools regardless of whether the action is running on GitHub or locally using `act`, I prefer to install the tools only when running locally. This is done by checking for the environment variable [`env.ACT`][11] before running an installation step.
-
-## Other Errors
-
-I occasionally run into other errors that aren't specific to the actions themselves. Timeout and rate-limiting errors can generally be cleared by re-running the action after waiting a few minutes.
-
-Examples of timeout and rate-limiting errors:
-
-```text
-Downloading index: package_index.tar.bz2 Get "https://downloads.arduino.cc/packages/package_index.tar.bz2": dial tcp: lookup downloads.arduino.cc on 192.168.1.1:53: read udp 192.168.1.1:33527->192.168.1.1:53: i/o timeout
-```
-
-```text
-arduino:avr-gcc@7.3.0-atmel3.6.1-arduino7 read tcp 192.168.1.1:57018->104.18.1.1:80: read: connection reset by peer
-Error during install: read tcp 192.168.1.1:57018->104.18.1.1:80: read: connection reset by peer
-```
-
-```text
-Error: Error response from daemon: Head "https://ghcr.io/v2/catthehacker/ubuntu/manifests/act-latest": Get "https://ghcr.io/token?scope=repository%3Acatthehacker%2Fubuntu%3Apull&service=ghcr.io": context deadline exceeded
-```
-
-```text
-::error::API rate limit exceeded for 73.1.1.1. (But here's the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)
--  ::error::API rate limit exceeded
-```
-
-### GitHub Actions Extension for VSCode
-
-The [GitHub Actions][2] extension for VSCode does not recognize the `env.ACT` variable and flags an issue in the Problems window when you open an action YAML file for editing:
-
-```text
-Context access might be invalid: ACT
-```
-
-This is documented in several issues ([67][67], [61][61], [47][47]) and there does not appear to be a plan to fix it. Some issue comments claim that it is fixed, but it is not.
-
-While the basic issue is slightly annoying, it is more annoying that the message does not go away when you close the file, and the Problems window gets cluttered with the messages. The only way to clear the messages after closing the file editor is to disable/enable the extension itself or quit and restart VSCode.
-
-## GitHub Reusable Workflows
+### GitHub Reusable Workflows
 
 GitHub Actions have a feature called [reusable workflows][24] which essentially allows one workflow to call another workflow. This makes it convenient to have a "base" workflow (referred to as a "called workflow") in a central location that does most of the work, and a per-repository workflow (referred to as a "caller workflow") which configures the settings needed to run the base workflow.
 
-Taking advantage of reusable workflows becomes especially useful when you need to make a change to the functionality of an action that is used in multiple repos (like when I had to fix the issue with `act` as described [above][25]). Instead of having to make the change in every repo which uses the action, all that needs to change is the single base workflow. See [.github/workflows][29] for the reusable workflows that my repos call.
+Taking advantage of reusable workflows becomes especially useful when you need to make a change to the functionality of an action that is used in multiple repos (like when I had to fix the issue with `act` as described [below][25]). Instead of having to make the change in every repo which uses the action, all that needs to change is the single base workflow. See [.github/workflows][29] for the reusable workflows that my repos call.
 
-### `act` Caching Reusable Workflows
-
-The `act` tool caches external repos (i.e., GitHub repos that aren't the current repo under test). This can create issues when debugging reusable workflows. If you push a change to a reusable workflow stored in another repo, `act` will use a cached version of the workflow without the updates. This can make it appear that a fix didn't work even though it should have.
-
-I work around this by deleting the cache directory any time I update the reusable workflows. The default cache location is `~/.cache/act`. My reusable workflows are stored in my `.github` repo on the `main` branch, so I run the following to delete the cache:
-
-```bash
-rm -rf ~/.cache/act/Andy4495-.github@main
-```
-
-This may be related to one of these issues: [1785][1785], [1912][1912], [1913][1913]. I haven't researched this any further, and there may be other solutions than just deleting the cache directory.
-
-## Workflow Structure
+### Workflow Structure
 
 I have a `workflow_dispatch` trigger (including an optional input string) on all my workflows so that I can trigger them manually from the [repo Actions screen][30]:
 
@@ -167,6 +73,126 @@ For [triggering builds][28] on multiple repos which are dependent on a library:
             repo: <Repo name>
 ```
 
+### Workflow Examples
+
+I have several template workflows available in my [.github repository][12]:
+
+- [compile-sketches][13]
+  - Arduino `compile-sketches` workflow with matrix build definitions for various hardware platforms.
+  - Update the matrix list as needed for the repo being compiled.
+- [markdown-link-check][14]
+  - Checks for dead links in Markdown files. Automatically runs once a month.
+  - Note that you also need to create a file named `mlc_config.json`.
+- [arduino-lint][15]
+  - Used with libraries published to the Arduino library manager to confirm that they meet the Arduino Library Spec rules.
+- [markdownlint][16]
+  - Used to validate "clean" markdown code.
+  - Note that you also need to create a file named `markdownlintconfig.json`
+  - *I typically do not run this as an action,* but instead use the related [VSCode extension][21] to check my Markdown code.
+- [build-dependent-repos][17].
+  - Automatically trigger a compile-sketches action on repos that depend on a library that I updated.
+  - This also uses a matrix strategy to define the list of repos that are triggered.
+
+## The `act` Tool for Testing Workflows Locally
+
+[`act`][1] uses [Docker][5] with customized [images][6] to create a local environment similar to the environment used by GitHub Actions. The default `act` image is intentionally [incomplete][7] to keep its size manageable. While it works well for many actions, there are cases which require extra workflow steps to set up the environment in order to get the action to run locally.
+
+### Arduino `compile-sketches` Action
+
+The main problem that I have run into with `act` is when using Arduino's [`compile-sketches`][8] action. Release [v1.1.0 of the `compile-sketches` action][10] changed the Python and related tools configuration to make the action incompatible with the default `act` image ([`catthehacker/ubuntu:act-latest`][9]).
+
+In particular, the following error will be thrown when trying to use `compile-sketches` v1.1.0 and the `ubuntu:act-latest` image:
+
+``` text
+/var/run/act/workflow/1-composite-2.sh: line 5: pipx: command not found
+Failure - Main Action setup
+Job failed
+```
+
+In addition, a change in cpython [v3.11.5][22] created another [issue][23] which causes the error:
+
+```text
+ImportError: /opt/hostedtoolcache/Python/3.11.5/x64/lib/python3.11/lib-dynload/math.cpython-311-x86_64-linux-gnu.so: undefined symbol: _PyModule_Add
+```
+
+#### Fixing the `compile-sketches` Errors
+
+To fix these problems, `python`, `poetry`, and `pipx` need to be installed locally into the `act` Docker image. It is also necessary to make sure that the version of python installed for `act` compatibility is the same version installed by the `arduino-compile-sketches` action.
+
+To get the `compile-sketches` action to run locally, update your workflow as follows:
+
+```yaml
+    steps:                           # Existing code
+      - uses: actions/checkout@main  # Existing code
+# *** Add the code below ***
+      - name: Clone compile-sketches to get python version (using nektos/act locally)
+        if: ${{ env.ACT }}
+        run: cd /tmp; git clone 'https://github.com/arduino/compile-sketches'
+      - name: setup-python (using nektos/act locally)
+        if: ${{ env.ACT }}
+        uses: actions/setup-python@v4
+        with:
+          python-version-file: /tmp/compile-sketches/.python-version
+      - name: Install Poetry (using nektos/act locally)
+        if: ${{ env.ACT }}
+        uses: snok/install-poetry@v1
+      - name: Install pipx (using nektos/act locally)
+        if: ${{ env.ACT }}
+        run: pip install pipx 
+# *** Add the code above ***
+      - uses: arduino/compile-sketches@v1  # Existing code
+```
+
+While the workflow could be configured to install these tools regardless of whether the action is running on GitHub or locally using `act`, I prefer to install the tools only when running locally. This is done by checking for the environment variable [`env.ACT`][11] before running an installation step.
+
+### Other Errors
+
+I occasionally run into timeout and rate-limiting errors when running `act` that aren't specific to the actions themselves. These errors can generally be cleared by waiting a few minutes and then re-running the action.
+
+Examples of timeout and rate-limiting errors:
+
+```text
+Downloading index: package_index.tar.bz2 Get "https://downloads.arduino.cc/packages/package_index.tar.bz2": dial tcp: lookup downloads.arduino.cc on 192.168.1.1:53: read udp 192.168.1.1:33527->192.168.1.1:53: i/o timeout
+```
+
+```text
+arduino:avr-gcc@7.3.0-atmel3.6.1-arduino7 read tcp 192.168.1.1:57018->104.18.1.1:80: read: connection reset by peer
+Error during install: read tcp 192.168.1.1:57018->104.18.1.1:80: read: connection reset by peer
+```
+
+```text
+Error: Error response from daemon: Head "https://ghcr.io/v2/catthehacker/ubuntu/manifests/act-latest": Get "https://ghcr.io/token?scope=repository%3Acatthehacker%2Fubuntu%3Apull&service=ghcr.io": context deadline exceeded
+```
+
+```text
+::error::API rate limit exceeded for 73.1.1.1. (But here's the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)
+-  ::error::API rate limit exceeded
+```
+
+### GitHub Actions Extension for VSCode and `act` Environment Variables
+
+The [GitHub Actions][2] extension for VSCode does not recognize the `env.ACT` variable and flags an issue in the Problems window when you open an action YAML file for editing:
+
+```text
+Context access might be invalid: ACT
+```
+
+This is documented in several issues ([67][67], [61][61], [47][47]) and there does not appear to be a plan to fix it. Some issue comments claim that it is fixed, but it is not.
+
+While the basic issue is slightly annoying, a more annoying aspect is that the message does not go away when you close the editor window. This causes the Problems window to become cluttered with the messages. The only way to clear the messages after closing the file editor is to disable/enable the extension or quit and restart VSCode.
+
+### `act` Caching Reusable Workflows
+
+The `act` tool caches external repos (i.e., GitHub repos that aren't the current repo under test). This can create issues when debugging reusable workflows. If you push a change to a reusable workflow stored in another repo, `act` will use a cached version of the workflow without the updates. This can make it appear that a fix didn't work even though it should have.
+
+I work around this by deleting the cache directory any time I update the reusable workflows. The default cache location is `~/.cache/act`. My reusable workflows are stored in my `.github` repo on the `main` branch, so I run the following to delete the cache:
+
+```bash
+rm -rf ~/.cache/act/Andy4495-.github@main
+```
+
+This may be related to one of these issues: [1785][1785], [1912][1912], [1913][1913]. I haven't researched this any further, and there may be other solutions than just deleting the cache directory.
+
 ### Matrix Strategy Issue with `act`
 
 When using a matrix strategy with reusable workflows, I see the following error when using `act` if there is more than one job combination:
@@ -181,7 +207,7 @@ The output log confirms that only a single job was triggered, and the other jobs
 
 I have found two ways to work around this:
 
-  - Temporarily set `max-parallel` to `1` in the strategy definition:
+- Temporarily set `max-parallel` to `1` in the strategy definition, then remove the line before pushing to GitHub:
 
 ```yaml
     strategy:
@@ -196,24 +222,6 @@ act -j compile-sketches --matrix arch:avr
 act -j compile-sketches --matrix arch:msp
 ... and so on ...
 ```
-
-## Workflow Examples
-
-I have several template workflows available in my [.github repository][12]:
-
-- [compile-sketches][13]
-  - Arduino `compile-sketches` workflow with matrix build definitions for various hardware platforms. Update the matrix list as needed for the repo being compiled.
-- [markdown-link-check][14]
-  - Checks for dead links in Markdown files. Automatically runs once a month.
-  - Note that you also need to create a file named `mlc_config.json`.
-- [arduino-lint][15]
-  - Used with libraries published to the Arduino library manager to confirm that they meet the Arduino Library Spec rules.
-- [markdownlint][16]
-  - Used to validate "clean" markdown code.
-  - I typically do not run this as an action but instead use the related [VSCode extension][21] to check my Markdown code.
-  - Note that you also need to create a file named `markdownlintconfig.json`
-- [build-dependent-repos][17].
-  - Automatically trigger a compile-sketches action on repos that depend on a library that I updated. This also uses a matrix strategy to define the list of repos that are triggered.
 
 ## References
 
