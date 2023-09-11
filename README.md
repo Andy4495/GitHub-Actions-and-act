@@ -201,11 +201,11 @@ When using a matrix strategy with reusable workflows, I see the following error 
 Error: failed to create container: 'Error response from daemon: Conflict. The container name "/act-compile-sketches-Arduino-Compile-Sketches-compile-sketches-5595d73dee5fa6aa5f69e681c15b6bca8259975f87d0b2a4705a13f38dfb28f4" is already in use by container "17f1359cf0e5609df223c5a362ba520175ceab7f9e9e9ab344c4d7417a2b7df1". You have to remove (or rename) that container to be able to reuse that name.'
 ```
 
-The output log confirms that only a single job was triggered, and the other jobs defined by the matrix were not run. The matrix runs correctly with GitHub actions. This may be related to issue [1287][1287].
+The output log confirms that only a single job was triggered, and the other jobs defined by the matrix were not run. The matrix runs correctly with GitHub actions. Issue [2003][2003] has been opened for this issue. It is possible that a fix may be related to the code mentioned in issue [1287][1287].
 
 `act` only creates a single container when running matrix strategies with reusable workflows. If I run the same action functionality without calling a reusable workflow, `act` creates a separate container for each job combination.
 
-I have found two ways to work around this:
+I currently use one of two methods to work around this:
 
 - Temporarily set `max-parallel` to `1` in the strategy definition, then remove the line before pushing to GitHub:
 
@@ -276,6 +276,7 @@ The software and other files in this repository are released under what is commo
 [1785]: https://github.com/nektos/act/issues/1785
 [1912]: https://github.com/nektos/act/pull/1912
 [1913]: https://github.com/nektos/act/pull/1913
+[2003]: https://github.com/nektos/act/issues/2003
 [100]: https://choosealicense.com/licenses/mit/
 [101]: ./LICENSE.txt
 [//]: # ([200]: https://github.com/Andy4495/GitHub-actions-and-act)
