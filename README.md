@@ -2,7 +2,7 @@
 
 [![Check Markdown Links](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/CheckMarkdownLinks.yml/badge.svg)](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/CheckMarkdownLinks.yml)
 
-I use GitHub [Actions][3] to run automated builds, tests, and checks on my repositories.
+I use GitHub [Actions][3] workflows to run automated builds, tests, and checks on my repositories.
 
 I develop and test my workflows before pushing them to GitHub with the [`act`][1] tool created by GitHub user [nektos][4].
 
