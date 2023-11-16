@@ -2,11 +2,13 @@
 
 [![Check Markdown Links](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/CheckMarkdownLinks.yml/badge.svg)](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/CheckMarkdownLinks.yml)
 
-I use GitHub [Actions][3] to run automated builds, tests, and checks on my repositories. I also like to use the [`act`][1] tool created by GitHub user [nektos][4] to develop and test my workflows before pushing them to GitHub.
+I use GitHub [Actions][3] to run automated builds, tests, and checks on my repositories.
+
+I develop and test my workflows before pushing them to GitHub with the [`act`][1] tool created by GitHub user [nektos][4].
 
 ## GitHub Actions
 
-GitHub has comprehensive [documentation][3] on Actions. This section documents some conventions I use with my actions, along with examples of workflows that I use across my repos.
+This section documents some conventions I use with my actions, along with examples of workflows that I use across my repos. See GitHub's comprehensive [documentation][3] for more details on action terminology and workflow syntax.
 
 ### GitHub Reusable Workflows
 
@@ -85,6 +87,12 @@ I have several template workflows available in my [.github repository][12]:
   - Note that you also need to create a file named `mlc_config.json`.
 - [arduino-lint][15]
   - Used with libraries published to the Arduino library manager to confirm that they meet the Arduino Library Spec rules.
+  - This workflow as written does not work with `act` because it requires the `GITHUB_TOKEN` secret which `act` does not supply by default. This could be fixed with a little extra code and some local setup, but I don't find this necessary because the [arduino-lint tool][33] can be easily run directly from the command line:
+
+    ```shell
+    arduino-lint --verbose --compliance strict --library-manager update 
+    ```
+
 - [markdownlint][16]
   - Used to validate "clean" markdown code.
   - Note that you also need to create a file named `markdownlintconfig.json`
@@ -181,35 +189,19 @@ rm -rf ~/.cache/act/Andy4495-.github@main
 
 This may be related to one of these issues: [1785][1785], [1912][1912], [1913][1913]. I haven't researched this any further, and there may be other solutions than just deleting the cache directory.
 
-### Matrix Strategy Issue with `act`
+### Docker Setup With Windows WSL
 
-When using a matrix strategy with reusable workflows, I see the following error when using `act` if there is more than one job combination:
+When running `act` under Windows WSL, you may see an error similar to the following:
 
 ```text
-Error: failed to create container: 'Error response from daemon: Conflict. The container name "/act-compile-sketches-Arduino-Compile-Sketches-compile-sketches-5595d73dee5fa6aa5f69e681c15b6bca8259975f87d0b2a4705a13f38dfb28f4" is already in use by container "17f1359cf0e5609df223c5a362ba520175ceab7f9e9e9ab344c4d7417a2b7df1". You have to remove (or rename) that container to be able to reuse that name.'
+Could not get auth config from docker config: error getting credentials - err: exec: "docker-credential-desktop.exe": executable file not found in $PATH, out: ''
 ```
 
-The output log confirms that only a single job was triggered, and the other jobs defined by the matrix were not run. The matrix runs correctly with GitHub actions. Issue [2003][2003] has been opened for this issue. It is possible that a fix may be related to the code mentioned in issue [1287][1287].
+This can be fixed by updating the file (within WSL) `~/.docker/config.json` and changing `credsStore` to `credStore`. You may need to restart Docker for this change to take effect.
 
-`act` only creates a single container when running matrix strategies with reusable workflows. If I run the same action functionality without calling a reusable workflow, `act` creates a separate container for each job combination.
+### Matrix Strategy Issue with `act`
 
-I currently use one of two methods to work around this:
-
-- Temporarily set `max-parallel` to `1` in the strategy definition, then remove the line before pushing to GitHub:
-
-```yaml
-    strategy:
-      max-parallel: 1    # Temporarily add this line between strategy and matrix
-      matrix:
-```
-
-- Or, run `act` multiple times with a unique matrix combination specified with the `--matrix` option individually for each run:
-
-```shell
-act -j compile-sketches --matrix arch:avr
-act -j compile-sketches --matrix arch:msp
-... and so on ...
-```
+This [issue][2003] has been fixed with the release of `act` version [0.2.54][32]. More details can be found [here][31].
 
 ## References
 
@@ -220,8 +212,10 @@ act -j compile-sketches --matrix arch:msp
 - [`compile-sketches`][8] action
 - [markdown-link-check][18] action
 - [arduino-lint][19] action
+- [arduino-lint][32] command-line tool
 - [markdownlint][20] action
 - [Markdownlint extension][21] for VSCode
+- [GitHub Actions][2] extension for VSCode
 
 ## License
 
@@ -255,12 +249,14 @@ The software and other files in this repository are released under what is commo
 [28]: https://github.com/Andy4495/Template-Repo/blob/main/.github/workflows/build-dependent-repos.yml
 [29]: https://github.com/Andy4495/.github/tree/main/.github/workflows
 [30]: ./extras/Actions_screen.jpg
+[31]: https://github.com/Andy4495/act-workflow-test
+[32]: https://github.com/nektos/act/releases/tag/v0.2.54
+[33]: https://arduino.github.io/arduino-lint/1.2/
 [47]: https://github.com/github/vscode-github-actions/issues/47
 [61]: https://github.com/github/vscode-github-actions/issues/61
 [67]: https://github.com/github/vscode-github-actions/issues/67
 [61-images]: https://github.com/catthehacker/docker_images/issues/61
 [74]: https://github.com/catthehacker/docker_images/pull/74
-[1287]: https://github.com/nektos/act/issues/1287
 [1785]: https://github.com/nektos/act/issues/1785
 [1912]: https://github.com/nektos/act/pull/1912
 [1913]: https://github.com/nektos/act/pull/1913
