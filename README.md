@@ -107,7 +107,7 @@ I have several template workflows available in my [.github repository][12]:
 
 ### `arduino-compile-sketches` Action
 
-One problem occurs when using Arduino's [`compile-sketches`][8] action. Release [v1.1.0 of the `compile-sketches` action][10] changed the Python and related tools configuration to make the action incompatible with the default `act` image ([`catthehacker/ubuntu:act-latest`][9]).
+Release [v1.1.0 of the `compile-sketches` action][10] changed the Python and related tools configuration to make the action incompatible with the default `act` image ([`catthehacker/ubuntu:act-latest`][9]).
 
 In particular, the following messages will be appear in the `act` output when trying to use `compile-sketches` v1.1.0 and the `ubuntu:act-latest` image, and the job will fail:
 
@@ -140,6 +140,22 @@ To fix this problems, `/root/.local/bin` needs to be added to the shell's PATH s
 By checking for the environment variable [`env.ACT`][11] first, the PATH update step is only run when using `act`.
 
 Note that versions of the `ubuntu:act-latest` image published before 18-Sep-2023 have additional issues, but the latest published version only requires the above change (see [61][61-images] and [74][74]).
+
+### Python Installation Error When Running `compile-sketches` Action
+
+If you see the following error when running the `compile-sketches` job:
+
+```text
+::error::rm: cannot remove '/opt/hostedtoolcache/Python/3.11.2': Directory not empty
+```
+
+Then try running the following command:
+
+```shell
+rm -r ~/.cache/act/actions-setup-python@v5   
+```
+
+I am pretty sure that I have only noticed this problem on newly installed setups. I do not completely understand what causes the problem, but deleting the local cache and forcing `act` to re-download `setup-python` (instead of using a local copy) fixes it.
 
 ### Timeout and Rate-limiting Errors
 
