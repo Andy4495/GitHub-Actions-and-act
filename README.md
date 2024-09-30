@@ -1,6 +1,6 @@
 # GitHub Actions and `act`
 
-[![Check Markdown Links](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/CheckMarkdownLinks.yml/badge.svg)](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/CheckMarkdownLinks.yml)
+[![Check Markdown Links](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/check-links.yml/badge.svg)](https://github.com/Andy4495/GitHub-Actions-and-act/actions/workflows/check-links.yml)
 
 I use GitHub [Actions][3] workflows to run automated builds, tests, and checks on my repositories.
 
@@ -82,9 +82,8 @@ I have several template workflows available in my [.github repository][12]:
 - [arduino-compile-sketches][13]
   - Arduino [`compile-sketches`][8] workflow with matrix build definitions for various hardware platforms.
   - Update the matrix list as needed for the repo being compiled.
-- [markdown-link-check][14]
+- [check-links][14]
   - Checks for dead links in Markdown files. Automatically runs once a month.
-  - Note that you also need to create a file named `mlc_config.json`.
 - [arduino-lint][15]
   - Used with libraries published to the Arduino library manager to confirm that they meet the Arduino Library Spec rules.
   - This workflow as written does not work with `act` because it requires the `GITHUB_TOKEN` secret which `act` does not supply by default. This could be fixed with a little extra code and some local setup, but I don't find this necessary because the [arduino-lint tool][33] can be easily run directly from the command line:
@@ -226,7 +225,7 @@ This [issue][2003] has been fixed with the release of `act` version [0.2.54][32]
 - [Docker][5]
 - Docker [images][6] for `act`
 - [`compile-sketches`][8] action
-- [markdown-link-check][18] action
+- [check-links][18] action
 - [arduino-lint][19] action
 - [arduino-lint][32] command-line tool
 - [markdownlint][20] action
@@ -250,11 +249,11 @@ The software and other files in this repository are released under what is commo
 [11]: https://github.com/nektos/act#skipping-steps
 [12]: https://github.com/Andy4495/.github
 [13]: https://github.com/Andy4495/.github/blob/main/workflow-templates/arduino-compile-sketches.yml
-[14]: https://github.com/Andy4495/.github/blob/main/workflow-templates/CheckMarkdownLinks.yml
+[14]: https://github.com/Andy4495/.github/blob/main/workflow-templates/check-links.yml
 [15]: https://github.com/Andy4495/.github/blob/main/workflow-templates/arduino-lint.yml
 [16]: https://github.com/Andy4495/.github/blob/main/workflow-templates/markdownlint.yml
 [17]: https://github.com/Andy4495/.github/blob/main/workflow-templates/build-dependent-repos.yml
-[18]: https://github.com/gaurav-nelson/github-action-markdown-link-check
+[18]: https://github.com/lycheeverse/lychee-action
 [19]: https://github.com/marketplace/actions/arduino-arduino-lint-action
 [20]: https://github.com/marketplace/actions/markdownlint-cli
 [21]: https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint
