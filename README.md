@@ -18,6 +18,8 @@ Taking advantage of reusable workflows becomes especially useful when you need t
 
 ### Workflow Structure
 
+#### Trigger on `workflow_dispatch`
+
 I have a `workflow_dispatch` trigger (including an optional input string) on all my workflows so that I can trigger them manually from the [repo Actions screen][30]:
 
 ```yaml
@@ -29,9 +31,11 @@ I have a `workflow_dispatch` trigger (including an optional input string) on all
         type: string
 ```
 
-For any workflow that can trigger multiple job runs based on different combinations of varibles, I use a [matrix strategy][26]. Even if the repo only needs to be compiled for one platform, I still use a matrix strategy for consistency with my other repos and my reusable workflows.
+#### Matrix Strategy
 
-For [compiling arduino sketches][27] across multiple platforms:
+For any workflow that can trigger multiple job runs based on different combinations of variables (e.g., compiling across multiple platforms), I use a [matrix strategy][26]. Even if the repo only needs to be compiled for one platform, I still use a matrix strategy for consistency with my other repos and my reusable workflows.
+
+Example for [compiling arduino sketches][27] across multiple platforms:
 
 ```yaml
   compile-sketches: 
@@ -45,19 +49,19 @@ For [compiling arduino sketches][27] across multiple platforms:
           - arch: msp-G2
             fqbn: 'energia:msp430:MSP-EXP430G2553LP'
             platform-name: 'energia:msp430'
-            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/main/json/package_energia_minimal_MSP_107_index.json'
+            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/refs/heads/main/json/package_energia_minimal_msp430_index.json'
           - arch: msp-F5529
             fqbn: 'energia:msp430:MSP-EXP430F5529LP'
             platform-name: 'energia:msp430'
-            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/main/json/package_energia_minimal_MSP_107_index.json'
+            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/refs/heads/main/json/package_energia_minimal_msp430_index.json'
           - arch: msp432
-            fqbn: 'energia:msp432r:MSP-EXP432P401R'
-            platform-name: 'energia:msp432r'
-            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/main/json/package_energia_minimal_MSP432r_index.json'
+            fqbn: 'energia:msp432:MSP-EXP432P401R'
+            platform-name: 'energia:msp432'
+            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/refs/heads/main/json/package_energia_minimal_msp432_index.json'
           - arch: tivac
             fqbn: 'energia:tivac:EK-TM4C123GXL'
             platform-name: 'energia:tivac'
-            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/main/json/package_energia_minimal_TM4C_104_alternate_index.json'
+            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/refs/heads/main/json/package_energia_minimal_tiva_index.json'
           - arch: esp8266
             fqbn: 'esp8266:esp8266:thing'
             platform-name: 'esp8266:esp8266'
@@ -83,9 +87,9 @@ I have several template workflows available in my [.github repository][12]:
   - Arduino [`compile-sketches`][8] workflow with matrix build definitions for various hardware platforms.
   - Update the matrix list as needed for the repo being compiled.
 - [check-links][14]
-  - Checks for dead links in Markdown files. Automatically runs once a month.
+  - Checks for dead links in Markdown files using the [lychee tool][75]. Automatically runs once a month.
 - [arduino-lint][15]
-  - Used with libraries published to the Arduino library manager to confirm that they meet the Arduino Library Spec rules.
+  - Used with libraries published to the Arduino library manager to validate that they conform to the Arduino Library Spec rules.
   - This workflow as written does not work with `act` because it requires the `GITHUB_TOKEN` secret which `act` does not supply by default. This could be fixed with a little extra code and some local setup, but I don't find this necessary because the [arduino-lint tool][33] can be easily run directly from the command line:
 
     ```shell
@@ -272,6 +276,7 @@ The software and other files in this repository are released under what is commo
 [67]: https://github.com/github/vscode-github-actions/issues/67
 [61-images]: https://github.com/catthehacker/docker_images/issues/61
 [74]: https://github.com/catthehacker/docker_images/pull/74
+[75]: https://github.com/lycheeverse/lychee
 [1785]: https://github.com/nektos/act/issues/1785
 [1912]: https://github.com/nektos/act/pull/1912
 [1913]: https://github.com/nektos/act/pull/1913
