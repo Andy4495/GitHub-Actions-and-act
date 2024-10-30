@@ -106,7 +106,27 @@ I have several template workflows available in my [.github repository][12]:
 
 ## The `act` Tool for Testing Workflows Locally
 
-[`act`][1] uses [Docker][5] with customized [images][6] to create a local environment similar to the environment used by GitHub Actions. The default `act` image is intentionally [incomplete][7] to keep its size manageable. While it works well for many actions, there are issues that arise since the environments are not quite the same.
+[`act`][1] uses [Docker][5] or [Podman][76] with customized [images][6] to create a local environment similar to the environment used by GitHub Actions. The default `act` image is intentionally [incomplete][7] to keep its size manageable. While it works well for many actions, there are issues that arise since the environments are not quite the same.
+
+### Action Cache
+
+`act` caches certain files in order to speed up actions and to limit downloading the same items over and over again. These cached files are stored in `~/.cache/act`. The old (original) implementation of the action cache can cause failures due to a race condition. When running a matrix build for the first time or when a tool version changes, it is possible that one container is creating the cache files while another container is trying to access the files, which causes the job to fail. The old action cache implementation is still the default and will no longer be updated, so the [maintainers recommend][77] specifying the `--use-new-action-cache` option when running `act`.
+
+#### Python Installation Error When Running `compile-sketches` Action
+
+If you see the following error when running the `compile-sketches` job:
+
+```text
+::error::rm: cannot remove '/opt/hostedtoolcache/Python/3.11.2': Directory not empty
+```
+
+Then try running `act` with the `--use-new-action-cache` option.
+
+You may also need to delete the cache files if the problem persists:
+
+```shell
+rm -r ~/.cache/act/actions-setup-python@v5   
+```
 
 ### `arduino-compile-sketches` Action
 
@@ -143,22 +163,6 @@ To fix this problems, `/root/.local/bin` needs to be added to the shell's PATH s
 By checking for the environment variable [`env.ACT`][11] first, the PATH update step is only run when using `act`.
 
 Note that versions of the `ubuntu:act-latest` image published before 18-Sep-2023 have additional issues, but the latest published version only requires the above change (see [61][61-images] and [74][74]).
-
-### Python Installation Error When Running `compile-sketches` Action
-
-If you see the following error when running the `compile-sketches` job:
-
-```text
-::error::rm: cannot remove '/opt/hostedtoolcache/Python/3.11.2': Directory not empty
-```
-
-Then try running the following command:
-
-```shell
-rm -r ~/.cache/act/actions-setup-python@v5   
-```
-
-I am pretty sure that I have only noticed this problem on newly installed setups. I do not completely understand what causes the problem, but deleting the local cache and forcing `act` to re-download `setup-python` (instead of using a local copy) fixes it.
 
 ### Timeout and Rate-limiting Errors
 
@@ -198,6 +202,8 @@ While the basic issue is slightly annoying, a more annoying aspect is that the m
 
 ### `act` Caching Reusable Workflows
 
+NOTE: This problem may be fixed by using the `--use-new-action-cache` option. I have not run any tests to confirm this yet.
+
 The `act` tool caches external repos (i.e., GitHub repos that aren't the current repo under test). This can create issues when debugging reusable workflows. If you push a change to a reusable workflow stored in another repo, `act` will use a cached version of the workflow without the updates. This can make it appear that a fix didn't work even though it should have.
 
 I work around this by deleting the cache directory any time I update the reusable workflows. The default cache location is `~/.cache/act`. My reusable workflows are stored in my `.github` repo on the `main` branch, so I run the following to delete the cache:
@@ -218,6 +224,61 @@ Could not get auth config from docker config: error getting credentials - err: e
 
 This can be fixed by updating the file (within WSL) `~/.docker/config.json` and changing `credsStore` to `credStore`. You may need to restart Docker for this change to take effect.
 
+### Using Podman Instead of Docker on Linux
+
+While Docker Desktop installs and updates easily on MacOS and Windows, it is another matter when trying to get it to work on Linux. I use Ubuntu, but the complications are common to all flavors of Linux.
+
+Installing Docker Desktop (or just Docker Engine) requires a multi-step process, not a simple `apt install docker`. Upgrading to a newer version also requires a separate download and install and cannot be done directly from the app. Making matters worse is that Docker Desktop does not work with Ubuntu 24.04 LTS (despite a [comment to the contrary][78]). Maybe it works now, but I have given up on going through the pain of installing only to find out it doesn't work.
+
+I therefore recommend using [Podman][76] as your containerization tool on Linux. To [install Podman][80] on Ubuntu, run:
+
+```shell
+sudo apt update
+sudo apt install podman
+```
+
+To configure `act` to use Podman, run the following steps after installing Podman:
+
+```shell
+sudo systemctl disable --now podman.socket
+```
+
+Run the following as the user that will be running `act`; do not `sudo`:
+
+```shell
+systemctl enable --now --user podman podman.socket 
+```
+
+And finally, set the `DOCKER_HOST` environment variable. This would normally done in your shell startup file (e.g. `~/.bashrc`), but could also be done manually before you run `act`:
+
+```shell
+export DOCKER_HOST=unix:///run/user/1000/podman/podman.sock
+```
+
+The file path may be different on your system. You can find the correct path by running `podman info` and looking at the `remoteSocket` value. Be sure to prepend the file path with `unix://`.
+
+I have found that Podman executes actions a little slower than Docker, but is still quite usable, and probably wouldn't be noticed if I didn't have experience running the actions in Docker. This slower execution is likely caused by the overhead of running in userspace instead of the kernel (rootless mode) and from the pasta network driver.
+
+### Ubuntu 24.04 WiFi Issues
+
+I have run into a fairly repeatable issue with Ubuntu completely freezing (cursor stops moving, reboot required to clear the issue) when running `act`. This issue happens with both Podman and Docker. I only see the problem when using WiFi; when connected to ethernet (WiFi disabled), I cannot reproduce the issue.
+
+I have only seen the issue with my `compile-sketches` action. By default, this action runs a matrix build with two or more containers running in parallel, although I have seen the problem less frequently when forcing the action to run a single matrix entry (with the `--matrix`) option, so that only a single container is running.
+
+This problem appears to be specific to Ubuntu 24.04; I have not seen it on similarly configured laptop running Ubuntu 22.04.
+
+At this point, the only thing I can recommend is to run matrix builds one at a time, by manually specifying the matrix combination using the `--matrix` option. For example, when running `compile-sketches` on my [SWI2C][79] library, run the following commands:
+
+```shell
+act -j compile-sketches --use-new-action-cache --matrix arch:avr
+act -j compile-sketches --use-new-action-cache --matrix arch:msp
+act -j compile-sketches --use-new-action-cache --matrix arch:msp432
+act -j compile-sketches --use-new-action-cache --matrix arch:tivac
+act -j compile-sketches --use-new-action-cache --matrix arch:stm32
+act -j compile-sketches --use-new-action-cache --matrix arch:esp8266
+act -j compile-sketches --use-new-action-cache --matrix arch:esp32
+```
+
 ### Matrix Strategy Issue with `act`
 
 This [issue][2003] has been fixed with the release of `act` version [0.2.54][32]. More details can be found [here][31].
@@ -228,6 +289,7 @@ This [issue][2003] has been fixed with the release of `act` version [0.2.54][32]
 - GitHub [Actions][3]
 - [Docker][5]
 - Docker [images][6] for `act`
+- [Podman][76]
 - [`compile-sketches`][8] action
 - [check-links][18] action
 - [arduino-lint][19] action
@@ -277,6 +339,11 @@ The software and other files in this repository are released under what is commo
 [61-images]: https://github.com/catthehacker/docker_images/issues/61
 [74]: https://github.com/catthehacker/docker_images/pull/74
 [75]: https://github.com/lycheeverse/lychee
+[76]: https://podman.io/
+[77]: https://github.com/nektos/act/issues/2419
+[78]: https://forums.docker.com/t/cannot-get-docker-desktop-to-run-on-ubuntu-24-04/141004/62
+[79]: https://github.com/Andy4495/SWI2C
+[80]: https://podman.io/docs/installation
 [1785]: https://github.com/nektos/act/issues/1785
 [1912]: https://github.com/nektos/act/pull/1912
 [1913]: https://github.com/nektos/act/pull/1913
