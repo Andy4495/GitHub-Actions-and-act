@@ -108,24 +108,32 @@ I have several template workflows available in my [.github repository][12]:
 
 [`act`][1] uses [Docker][5] or [Podman][76] with customized [images][6] to create a local environment similar to the environment used by GitHub Actions. The default `act` image is intentionally [incomplete][7] to keep its size manageable. While it works well for many actions, there are issues that arise since the environments are not quite the same.
 
-### Action Cache
+### Python Installation Error When Running `compile-sketches` Action
 
-`act` caches certain files in order to speed up actions and to limit downloading the same items over and over again. These cached files are stored in `~/.cache/act`. The old (original) implementation of the action cache can cause failures due to a race condition. When running a matrix build for the first time or when a tool version changes, it is possible that one container is creating the cache files while another container is trying to access the files, which causes the job to fail. The old action cache implementation is still the default and will no longer be updated, so the [maintainers recommend][77] specifying the `--use-new-action-cache` option when running `act`.
-
-#### Python Installation Error When Running `compile-sketches` Action
-
-If you see the following error when running the `compile-sketches` job:
+You may see the following error when running the `compile-sketches` job:
 
 ```text
 ::error::rm: cannot remove '/opt/hostedtoolcache/Python/3.11.2': Directory not empty
 ```
 
-Then try running `act` with the `--use-new-action-cache` option.
+This only seems to happen when a new cache is being configured on the first run of matrix builds where one matrix run may be populating the cache at the same time a parallel matrix run is trying to access the cache.
 
-You may also need to delete the cache files if the problem persists:
+To fix this, delete the relevant cache:
 
 ```shell
 rm -r ~/.cache/act/actions-setup-python@v5   
+```
+
+And then run `act` with a single matrix job before running the full matrix. For example:
+
+```shell
+act --matrix arch:msp432
+```
+
+While a new action cache architecture has been implemented in `act`, it does not appear to fix this particular race condition, but you can also try it if the problem persists:
+
+```shell
+act --use-new-action-cache
 ```
 
 ### `arduino-compile-sketches` Action
@@ -202,8 +210,6 @@ While the basic issue is slightly annoying, a more annoying aspect is that the m
 
 ### `act` Caching Reusable Workflows
 
-NOTE: This problem may be fixed by using the `--use-new-action-cache` option. I have not run any tests to confirm this yet.
-
 The `act` tool caches external repos (i.e., GitHub repos that aren't the current repo under test). This can create issues when debugging reusable workflows. If you push a change to a reusable workflow stored in another repo, `act` will use a cached version of the workflow without the updates. This can make it appear that a fix didn't work even though it should have.
 
 I work around this by deleting the cache directory any time I update the reusable workflows. The default cache location is `~/.cache/act`. My reusable workflows are stored in my `.github` repo on the `main` branch, so I run the following to delete the cache:
@@ -212,7 +218,7 @@ I work around this by deleting the cache directory any time I update the reusabl
 rm -rf ~/.cache/act/Andy4495-.github@main
 ```
 
-This may be related to one of these issues: [1785][1785], [1912][1912], [1913][1913]. I haven't researched this any further, and there may be other solutions than just deleting the cache directory.
+This may be related to one of these issues: [1785][1785], [1912][1912], [1913][1913]. However, the new action cache implemented in `act` does not appear to fix this issue. Also, see `act` issue [2419][77].
 
 ### Docker Setup With Windows WSL
 
@@ -226,7 +232,7 @@ This can be fixed by updating the file (within WSL) `~/.docker/config.json` and 
 
 ### Using Podman Instead of Docker on Linux
 
-While Docker Desktop installs and updates easily on MacOS and Windows, it is another matter when trying to get it to work on Linux. I use Ubuntu, but the complications are common to all flavors of Linux.
+While Docker Desktop is easy to install and update on MacOS and Windows, it is another matter trying to get it to work on Linux. I use Ubuntu, but the complications are common to all flavors of Linux.
 
 Installing Docker Desktop (or just Docker Engine) requires a multi-step process, not a simple `apt install docker`. Upgrading to a newer version also requires a separate download and install and cannot be done directly from the app. Making matters worse is that Docker Desktop does not work with Ubuntu 24.04 LTS (despite a [comment to the contrary][78]). Maybe it works now, but I have given up on going through the pain of installing only to find out it doesn't work.
 
@@ -257,7 +263,7 @@ export DOCKER_HOST=unix:///run/user/1000/podman/podman.sock
 
 The file path may be different on your system. You can find the correct path by running `podman info` and looking at the `remoteSocket` value. Be sure to prepend the file path with `unix://`.
 
-I have found that Podman executes actions a little slower than Docker, but is still quite usable, and probably wouldn't be noticed if I didn't have experience running the actions in Docker. This slower execution is likely caused by the overhead of running in userspace instead of the kernel (rootless mode) and from the pasta network driver.
+I have found that Podman executes actions a little slower than Docker. It is still quite usable, and probably wouldn't be noticed if I didn't have experience running the actions in Docker. This slower execution is likely caused by the overhead of running in userspace instead of the kernel (rootless mode) and from the pasta network driver.
 
 ### Ubuntu 24.04 WiFi Issues
 
