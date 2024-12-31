@@ -50,6 +50,10 @@ Example for [compiling arduino sketches][27] across multiple platforms:
             fqbn: 'energia:msp430:MSP-EXP430G2553LP'
             platform-name: 'energia:msp430'
             platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/refs/heads/main/json/package_energia_minimal_msp430_index.json'
+          - arch: msp-G2-gcc9
+            fqbn: 'energia:msp430gcc9:MSP-EXP430G2553LP'
+            platform-name: 'energia:msp430gcc9'
+            platform-sourceurl: 'https://raw.githubusercontent.com/Andy4495/TI_Platform_Cores_For_Arduino/refs/heads/main/json/package_energia_minimal_msp430_index.json'
           - arch: msp-F5529
             fqbn: 'energia:msp430:MSP-EXP430F5529LP'
             platform-name: 'energia:msp430'
