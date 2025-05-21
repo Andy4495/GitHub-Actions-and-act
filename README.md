@@ -176,6 +176,29 @@ By checking for the environment variable [`env.ACT`][11] first, the PATH update 
 
 Note that versions of the `ubuntu:act-latest` image published before 18-Sep-2023 have additional issues, but the latest published version only requires the above change (see [61][61-images] and [74][74]).
 
+### `check-links` Action
+
+#### Different Behavior in `act` Environment
+
+The `check-links` action runs a little differently in the `act` environment versus in the GitHub Action runner environment. In particular, it is necessary to exclude the `lychee/out.md` file from being checked by the [lychee tool][75]. Otherwise, running `act -j link-checker` will report a failed link error similar to:
+
+```text
+[404] https://github.com/user/repo-name/actions/runs/1?check_suite_focus=true
+```
+
+Therefore, the option `--exclude-path $PWD/lychee` has been added to the `check-links` [base workflow][81].
+
+#### Relative Paths
+
+A second issue, which occurs in both the GitHub Action runner environment and the `act` environment, was probably introduced with [1489][1489] in [lychee release v0.17.0][0.17.0]. This causes a warning similar to the following for any relative links (including Markdown anchors):
+
+```text
+[WARN ] Error creating request: InvalidBaseJoin("#anchor1")
+[WARN ] Error creating request: InvalidBaseJoin("docs/index.html")
+```
+
+The `check-links` [base workflow][81] has been updated with the workaround documented in issue [1577][1577]: replace `--base .` with `--root-dir $PWD`. While issue 1577 has been closed based on the workaround, it is not really fixed and is also tracked with issue [1574][1574].
+
 ### Timeout and Rate-limiting Errors
 
 When using `act`, I occasionally run into timeout and rate-limiting errors that aren't specific to the actions themselves. These errors can generally be cleared by waiting a few minutes and then re-running the action.
@@ -354,6 +377,11 @@ The software and other files in this repository are released under what is commo
 [78]: https://forums.docker.com/t/cannot-get-docker-desktop-to-run-on-ubuntu-24-04/141004/62
 [79]: https://github.com/Andy4495/SWI2C
 [80]: https://podman.io/docs/installation
+[81]: https://github.com/Andy4495/.github/blob/main/.github/workflows/check-links.yml
+[0.17.0]: https://github.com/lycheeverse/lychee/releases/tag/lychee-v0.17.0
+[1489]: https://github.com/lycheeverse/lychee/pull/1489
+[1574]: https://github.com/lycheeverse/lychee/issues/1574
+[1577]: https://github.com/lycheeverse/lychee/issues/1577
 [1785]: https://github.com/nektos/act/issues/1785
 [1912]: https://github.com/nektos/act/pull/1912
 [1913]: https://github.com/nektos/act/pull/1913
